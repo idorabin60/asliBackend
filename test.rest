@@ -1,0 +1,17 @@
+POST http://127.0.0.1:8000/signup 
+Content-Type: application/json
+
+{ "username": "idorabin", "password": "Pass1234!", "email": "adam@mail.com" }
+
+###
+
+POST http://127.0.0.1:8000/login 
+Content-Type: application/json
+
+{ "username": "idorabin", "password": "idoidoido1" }
+
+###
+
+GET http://127.0.0.1:8000/user_homeworks
+Content-Type: application/json
+Authorization: token d5a6fdb25f99d894533215faffe6f0fb1075fb8d

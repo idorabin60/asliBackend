@@ -1,0 +1,13 @@
+# Virtual environment
+venv/
+
+# Secrets
+credentials.json
+token.json
+
+# Python compiled files
+__pycache__/
+*.pyc
+
+# (Optional) Django database file
+db.sqlite3
