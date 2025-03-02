@@ -1,7 +1,7 @@
 POST http://127.0.0.1:8000/signup 
 Content-Type: application/json
 
-{ "username": "idorabin", "password": "Pass1234!", "email": "adam@mail.com" }
+{ "username": "idojohn", "password": "Pass1234!", "email": "adam@mail.com" }
 
 ###
 
