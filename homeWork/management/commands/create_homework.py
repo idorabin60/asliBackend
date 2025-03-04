@@ -10,12 +10,15 @@ import googleapiclient
 import google.generativeai as genai
 from docx import Document
 import re  # Import regex for username cleanup
+from homeWork.prompt_data_parser import prompt_data_parser
+from homeWork.prompt_data_parser import add_newline_after_number
 
 # Define Google API Scopes
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 
 
 class Command(BaseCommand):
+
     help = "Fetch all .docx files from Google Drive, generate AI-based homework, and store it in the database."
 
     def handle(self, *args, **kwargs):
@@ -166,9 +169,98 @@ class Command(BaseCommand):
         try:
             genai.configure(api_key="AIzaSyDnL8RfShx-pgxLRaMoby4kZKJJocnG3s8")
             model = genai.GenerativeModel("gemini-1.5-flash")
-            prompt = "This is a summary of an Arabic lesson in Hebrew. The content might be weird due to parsing issues. Create homework for the students."
+            lesson_summary_prompt = """
+פרומפט ליצירת סיכום שיעור בערבית
+פלסטינית
+מטרת הפרומפט:
+יצירת סיכום שיעור מובנה ומוכן
+להעתקה למייל, בפורמט מקצועי וברור.
+תקפיד שהכותרת של כל אחד מהנושאים
+כל אחת מ4 הכותרות, תשים במקומה רק #
+קלט:
+תמלול מלא של השיעור
+מבנה הסיכום שייוצר:
 
-            response = model.generate_content(prompt + "\n\n" + content)
+#תקציר השיעור – תיאור קצר בעברית של הנושאים שנלמדו , הפעילויות שבוצעו והתמקדות בנקודות החשובות
+ביותר שעלו במהלך השיעור
+
+
+#אוצר מילים חדש 
+30 מילים החדשות לתלמיד שנלמדו בשיעור, כשכל אחת מופיעה ב
+ערבית (אותיות ערביות)
+ערבית (תעתיק באותיות עבריות)
+עברית (תרגום)
+
+השתדל לכלול מגוון של מילים חדשות
+שנלמדו
+מבנה  החלק הזה:
+הופעת המילים בלבד
+
+#תופעה תחבירית חדשה
+הסבר עליה בעברית
+דוגמאות רלוונטיות מתוך השיעור
+
+
+#שיעורי בית
+משפטים לתרגול – יצירת משפטים
+מקוריים המבוססים על אוצר המילים החדש: סהכ 15 משפטים
+תרגול מערבית לעברית
+תרגול כתיבה או דיבור
+שימוש בתופעה התחבירית החדשה
+מבנה החלק הזה: תרגם את המשפטים הבאים:
+ואז המשפטים
+חוקים ליצירת התוכן:
+כל המילים והמשפטים יוצגו בערבית
+פלסטינית (לא בערבית ספרותית).
+
+לפי התעתיק:
+כל מילה בערבית תיכתב גם באותיות
+ערביות וגם באותיות עבריות.
+
+תעתיק עברי ערבי לפי:
+א          ا
+ב          ب
+ג או ג'   ج
+ד          د
+ד'          ذ
+ה          ه
+ו           و
+ז           ز
+ח          ح
+ח'         خ
+ט          ط
+ט'         ظ
+י           ي
+כ          ك
+ל          ل
+מ          م
+נ           ن
+ס          س
+ע          ع
+ע'         غ
+פ          ف
+צ          ص
+צ'          ض
+ק          ق
+ר          ر
+ש          ش
+ת          ت
+ת'         ث
+ה~        ة
+כל משפטי התרגול יהיו בהקשר רלוונטי
+לשיחה יומיומית..
+אל תעשה שימוש בכלל בסוגריים 
+
+סעיף שיעורי הבית יכלול תרגול מותאם
+אישית מהשיעור (ולא תרגול גנרי).
+פלט (תוצאה מבוקשת):
+מסמך מסודר, כאשר הכותרות הן בדיוק
+לפי הסעיפים הממוספרים
+כתוב בשפה ברורה ומקצועית
+"""
+
+            response = model.generate_content(
+                lesson_summary_prompt + "\n\n" + content)
             generated_text = response.text if response else "No AI-generated homework."
             self.stdout.write("✅ AI homework generated successfully.\n")
             return generated_text
@@ -183,8 +275,11 @@ class Command(BaseCommand):
 
         try:
             user = User.objects.get(email=email)
+            response_lst = prompt_data_parser(homework_text)
+            print(homework_text)
+            home_work = add_newline_after_number(response_lst[4])
             Homework.objects.create(
-                user=user, text=homework_text, file_id=file_id)
+                user=user, summary=response_lst[1], file_id=file_id, new_vocabulary=response_lst[2], grammatical_phenomenon=response_lst[3], hw=response_lst[4])
             self.stdout.write(self.style.SUCCESS(
                 f"✅ Successfully created homework for {email}\n"))
         except User.DoesNotExist:
