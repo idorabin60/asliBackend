@@ -4,7 +4,6 @@ venv/
 # Secrets
 credentials.json
 token.json
-service_account.json
 
 # Python compiled files
 __pycache__/

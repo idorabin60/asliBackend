@@ -25,4 +25,6 @@ urlpatterns = [
     re_path('test_token', user_views.test_token),
     re_path('signup', user_views.signup),
     re_path('user_homeworks', user_views.user_homeworks),
+
+
 ]
