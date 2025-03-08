@@ -4,6 +4,7 @@ from django_cron import CronJobBase, Schedule
 from django.core.management import call_command
 
 # Ensure Django settings are loaded
+
 os.environ.setdefault("DJANGO_SETTINGS_MODULE",
                       "asliBackend.asliBackend.settings")
 django.setup()
