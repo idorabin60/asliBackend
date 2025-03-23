@@ -25,12 +25,29 @@ def login(request):
 def signup(request):
     serializer = UserSerializer(data=request.data)
     if serializer.is_valid():
-        serializer.save()
-        user = User.objects.get(username=request.data['username'])
-        token = Token.objects.create(user=user)
-        user.set_password(request.data['password'])
+        validated_data = serializer.validated_data
+
+        # Extract password separately to hash it later
+        password = validated_data.pop('password', None)
+
+        # Create the user with validated data (including first_name and last_name)
+        user = User(**validated_data)
+
+        # Hash the password before saving
+        if password:
+            user.set_password(password)
+
         user.save()
-        return Response({"token": token.key, "user": serializer.data}, status=status.HTTP_201_CREATED)
+
+        # Generate authentication token
+        token, created = Token.objects.get_or_create(user=user)
+
+        # Serialize the user AFTER saving to include the correct data
+        user_serializer = UserSerializer(user)
+        print(user_serializer)
+
+        return Response({"token": token.key, "user": user_serializer.data}, status=status.HTTP_201_CREATED)
+
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

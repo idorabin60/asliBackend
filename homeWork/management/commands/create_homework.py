@@ -99,7 +99,7 @@ class Command(BaseCommand):
         self.stdout.write("🟢 Fetching .docx files from Google Drive...\n")
 
         drive_service = build('drive', 'v3', credentials=creds)
-        folder_id = "1YvurevdgmZj7BumVGFjgEQjW9ehUbVbw"
+        folder_id = "1NdM_pXYk5_Nd9I4E-pEwxOvrlEdzLrxy"
         query = f"'{folder_id}' in parents"  # Get all files, any type
 
         try:
