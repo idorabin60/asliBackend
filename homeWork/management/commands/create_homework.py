@@ -9,77 +9,88 @@ from googleapiclient.http import MediaIoBaseDownload
 import googleapiclient
 import google.generativeai as genai
 from docx import Document
-import re  # Import regex for username cleanup
+import re
 from homeWork.prompt_data_parser import prompt_data_parser
 from homeWork.prompt_data_parser import add_newline_after_number
 
-# Define Google API Scopes
+# Google API Scopes
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 
 
 class Command(BaseCommand):
 
-    help = "Fetch all .docx files from Google Drive, generate AI-based homework, and store it in the database."
+    help = "Fetch all files from Google Drive root, generate AI-based homework, and store it in DB."
 
     def handle(self, *args, **kwargs):
         self.stdout.write("🟢 Starting the process...\n")
 
         try:
             creds = self.authenticate_google()
-            files = self.get_all_docx_files(creds)
+            files = self.get_all_drive_files(creds)
 
             if not files:
                 self.stdout.write(self.style.WARNING(
-                    "⚠️ No .docx files found in Google Drive.\n"))
+                    "⚠️ No files found in Google Drive.\n"))
                 return
 
-            self.stdout.write(f"✅ Found {len(files)} .docx files.\n")
+            self.stdout.write(f"✅ Found {len(files)} files in Drive.\n")
 
             for file in files:
                 file_name = file['name']
                 file_id = file['id']
+                mime_type = file.get('mimeType', '')
                 self.stdout.write(
                     f"🔍 Processing file: {file_name} (ID: {file_id})\n")
 
-                # ✅ Check if file has already been processed
+                # ✅ Skip if already processed
                 if Homework.objects.filter(file_id=file_id).exists():
                     self.stdout.write(self.style.WARNING(
                         f"⚠️ Skipping {file_name} - Already processed.\n"))
                     continue
 
-                # ✅ Extract and validate email from the file name
+                # ✅ Extract email from file name
                 email = self.extract_valid_username(file_name)
                 if not email:
                     self.stdout.write(self.style.ERROR(
                         f"❌ Skipping {file_name} - Invalid email format.\n"))
                     continue
 
-                # ✅ Validate if user exists
+                # ✅ Validate user exists
                 if not User.objects.filter(email=email).exists():
                     self.stdout.write(self.style.ERROR(
-                        f"⚠️ Skipping {file_name} - User '{email}' does not exist in the database.\n"))
+                        f"⚠️ Skipping {file_name} - User '{email}' does not exist.\n"))
                     continue
 
-                # ✅ Download, process, and store homework
-                file_path = self.download_file(file_id, file_name, creds)
-                document_content = self.read_docx(file_path)
-                homework_text = self.generate_homework(document_content)
-                self.create_homework_in_django(email, homework_text, file_id)
+                # ✅ Download file
+                file_path = self.download_file(
+                    file_id, file_name, creds, mime_type)
+                if not file_path:
+                    continue
 
-                # ✅ Delete local copy of file
+                # ✅ Process only .docx files
+                if file_name.endswith('.docx'):
+                    document_content = self.read_docx(file_path)
+                    homework_text = self.generate_homework(document_content)
+                    self.create_homework_in_django(
+                        email, homework_text, file_id)
+                else:
+                    self.stdout.write(self.style.WARNING(
+                        f"⚠️ Skipping text extraction - {file_name} is not a .docx file.\n"))
+
+                # ✅ Delete local file
                 if os.path.exists(file_path):
                     os.remove(file_path)
                     self.stdout.write(self.style.SUCCESS(
                         f"🗑️ Deleted local file: {file_name}\n"))
 
             self.stdout.write(self.style.SUCCESS(
-                "✅ All homework files processed successfully.\n"))
+                "✅ All files processed successfully.\n"))
 
         except Exception as e:
             self.stdout.write(self.style.ERROR(f"❌ ERROR: {str(e)}\n"))
 
     def authenticate_google(self):
-        """Authenticate with Google API using service account credentials."""
+        """Authenticate with Google API."""
         self.stdout.write("🟢 Authenticating Google API...\n")
 
         BASE_DIR = os.path.dirname(os.path.dirname(
@@ -94,29 +105,28 @@ class Command(BaseCommand):
         self.stdout.write("✅ Google API Authentication successful.\n")
         return creds
 
-    def get_all_docx_files(self, creds):
-        """Retrieve all `.docx` files from Google Drive."""
-        self.stdout.write("🟢 Fetching .docx files from Google Drive...\n")
+    def get_all_drive_files(self, creds):
+        """Retrieve all files from Google Drive root."""
+        self.stdout.write("🟢 Fetching all files from Google Drive...\n")
 
         drive_service = build('drive', 'v3', credentials=creds)
-        folder_id = "1NdM_pXYk5_Nd9I4E-pEwxOvrlEdzLrxy"
-        query = f"'{folder_id}' in parents"  # Get all files, any type
+        query = "trashed = false"
 
         try:
             results = drive_service.files().list(
-                q=query, spaces='drive',
+                q=query,
+                spaces='drive',
                 supportsAllDrives=True,
                 includeItemsFromAllDrives=True,
-                fields="files(id, name)"
+                fields="files(id, name, mimeType)"
             ).execute()
 
             files = results.get('files', [])
             if files:
-                self.stdout.write(
-                    f"✅ Found {len(files)} .docx files in folder.\n")
+                self.stdout.write(f"✅ Found {len(files)} files in Drive.\n")
             else:
                 self.stdout.write(self.style.WARNING(
-                    f"⚠️ No .docx files found in folder ID: {folder_id}.\n"))
+                    f"⚠️ No files found in Drive.\n"))
 
             return files
         except Exception as e:
@@ -124,21 +134,33 @@ class Command(BaseCommand):
                 f"❌ ERROR fetching files: {str(e)}\n"))
             return []
 
-    def download_file(self, file_id, file_name, creds):
+    def download_file(self, file_id, file_name, creds, mime_type):
+        """Download file, handling Google Docs & regular files."""
         self.stdout.write(
             f"🟢 Downloading file: {file_name} (ID: {file_id})...\n")
         drive_service = build('drive', 'v3', credentials=creds)
         file_path = os.path.join(os.getcwd(), file_name)
+
         try:
-            request = drive_service.files().export_media(fileId=file_id,
-                                                         mimeType='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+            if mime_type.startswith('application/vnd.google-apps'):
+                # Export Google Docs as DOCX
+                request = drive_service.files().export_media(
+                    fileId=file_id,
+                    mimeType='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                )
+            else:
+                # Download regular files
+                request = drive_service.files().get_media(fileId=file_id)
+
             with io.FileIO(file_path, 'wb') as file:
                 downloader = MediaIoBaseDownload(file, request)
                 done = False
                 while not done:
                     status, done = downloader.next_chunk()
-                    self.stdout.write(
-                        f"📥 Download progress: {int(status.progress() * 100)}%")
+                    if status:
+                        self.stdout.write(
+                            f"📥 Download progress: {int(status.progress() * 100)}%")
+
             self.stdout.write(f"✅ Download completed: {file_name}\n")
             return file_path
         except Exception as e:
@@ -169,95 +191,7 @@ class Command(BaseCommand):
         try:
             genai.configure(api_key="AIzaSyDnL8RfShx-pgxLRaMoby4kZKJJocnG3s8")
             model = genai.GenerativeModel("gemini-1.5-flash")
-            lesson_summary_prompt = """
-פרומפט ליצירת סיכום שיעור בערבית
-פלסטינית
-מטרת הפרומפט:
-יצירת סיכום שיעור מובנה ומוכן
-להעתקה למייל, בפורמט מקצועי וברור.
-תקפיד שהכותרת של כל אחד מהנושאים
-כל אחת מ4 הכותרות, תשים במקומה רק #
-קלט:
-תמלול מלא של השיעור
-מבנה הסיכום שייוצר:
-
-#תקציר השיעור – תיאור קצר בעברית של הנושאים שנלמדו , הפעילויות שבוצעו והתמקדות בנקודות החשובות
-ביותר שעלו במהלך השיעור
-
-
-#אוצר מילים חדש 
-30 מילים החדשות לתלמיד שנלמדו בשיעור, כשכל אחת מופיעה ב
-ערבית (אותיות ערביות)
-ערבית (תעתיק באותיות עבריות)
-עברית (תרגום)
-
-השתדל לכלול מגוון של מילים חדשות
-שנלמדו
-מבנה  החלק הזה:
-הופעת המילים בלבד
-
-#תופעה תחבירית חדשה
-הסבר עליה בעברית
-דוגמאות רלוונטיות מתוך השיעור
-
-
-#שיעורי בית
-משפטים לתרגול – יצירת משפטים
-מקוריים המבוססים על אוצר המילים החדש: סהכ 15 משפטים
-תרגול מערבית לעברית
-תרגול כתיבה או דיבור
-שימוש בתופעה התחבירית החדשה
-מבנה החלק הזה: תרגם את המשפטים הבאים:
-ואז המשפטים
-חוקים ליצירת התוכן:
-כל המילים והמשפטים יוצגו בערבית
-פלסטינית (לא בערבית ספרותית).
-
-לפי התעתיק:
-כל מילה בערבית תיכתב גם באותיות
-ערביות וגם באותיות עבריות.
-
-תעתיק עברי ערבי לפי:
-א          ا
-ב          ب
-ג או ג'   ج
-ד          د
-ד'          ذ
-ה          ه
-ו           و
-ז           ز
-ח          ح
-ח'         خ
-ט          ط
-ט'         ظ
-י           ي
-כ          ك
-ל          ل
-מ          م
-נ           ن
-ס          س
-ע          ع
-ע'         غ
-פ          ف
-צ          ص
-צ'          ض
-ק          ق
-ר          ر
-ש          ش
-ת          ت
-ת'         ث
-ה~        ة
-כל משפטי התרגול יהיו בהקשר רלוונטי
-לשיחה יומיומית..
-אל תעשה שימוש בכלל בסוגריים 
-
-סעיף שיעורי הבית יכלול תרגול מותאם
-אישית מהשיעור (ולא תרגול גנרי).
-פלט (תוצאה מבוקשת):
-מסמך מסודר, כאשר הכותרות הן בדיוק
-לפי הסעיפים הממוספרים
-כתוב בשפה ברורה ומקצועית
-"""
+            lesson_summary_prompt = """..."""  # Keep your existing long prompt here!
 
             response = model.generate_content(
                 lesson_summary_prompt + "\n\n" + content)
@@ -270,16 +204,31 @@ class Command(BaseCommand):
             return ""
 
     def create_homework_in_django(self, email, homework_text, file_id):
-        """Store the AI-generated homework in the Django database with file_id."""
+        """Store the AI-generated homework in the DB."""
         self.stdout.write(f"🟢 Storing homework in DB for user: {email}...\n")
 
         try:
             user = User.objects.get(email=email)
             response_lst = prompt_data_parser(homework_text)
-            print(homework_text)
+            response_lst = prompt_data_parser(homework_text)
+
+            self.stdout.write(f"response_lst length: {len(response_lst)}")
+            self.stdout.write(f"response_lst content: {response_lst}")
+
             home_work = add_newline_after_number(response_lst[4])
+            self.stdout.write(response_lst[1])
+            self.stdout.write(response_lst[2])
+            self.stdout.write(response_lst[3])
+            self.stdout.write(response_lst[4])
+
             Homework.objects.create(
-                user=user, summary=response_lst[1], file_id=file_id, new_vocabulary=response_lst[2], grammatical_phenomenon=response_lst[3], hw=response_lst[4])
+                user=user,
+                summary=response_lst[1],
+                file_id=file_id,
+                new_vocabulary=response_lst[2],
+                grammatical_phenomenon=response_lst[3],
+                hw=response_lst[4]
+            )
             self.stdout.write(self.style.SUCCESS(
                 f"✅ Successfully created homework for {email}\n"))
         except User.DoesNotExist:
@@ -290,17 +239,10 @@ class Command(BaseCommand):
                 f"❌ ERROR storing in DB: {str(e)}\n"))
 
     def extract_valid_username(self, file_name):
-        """
-        Extracts a valid email from the file name.
-        The file name must contain a valid email format.
-        """
-        base_name = os.path.splitext(file_name)[0]  # Remove .docx extension
-
-    # Match a valid email format using regex
+        """Extracts a valid email from file name."""
+        base_name = os.path.splitext(file_name)[0]
         match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', base_name)
-
         if match:
-            email = match.group(0)  # Extract the matched email
+            email = match.group(0)
             return email if User.objects.filter(email=email).exists() else None
-
-        return None  # Return None if no valid email is found
+        return None
