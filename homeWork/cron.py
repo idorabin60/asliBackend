@@ -13,7 +13,7 @@ django.setup()
 class CreateHomeworkCronJob(CronJobBase):
     """Runs the `create_homework` management command every hour."""
 
-    RUN_EVERY_MINS = 60  # Runs every 60 minutes
+    RUN_EVERY_MINS = 2  # Runs every 60 minutes
     schedule = Schedule(run_every_mins=RUN_EVERY_MINS)
     code = 'homeWork.create_homework_cron'  # Unique identifier
 

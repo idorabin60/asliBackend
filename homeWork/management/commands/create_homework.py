@@ -10,8 +10,11 @@ import googleapiclient
 import google.generativeai as genai
 from docx import Document
 import re  # Import regex for username cleanup
+from dotenv import load_dotenv, dotenv_values
 from homeWork.prompt_data_parser import prompt_data_parser
 from homeWork.prompt_data_parser import add_newline_after_number
+load_dotenv()
+print(os.getenv("GEMINAI_API_KEY"))
 
 # Define Google API Scopes
 SCOPES = ["https://www.googleapis.com/auth/drive"]
@@ -130,8 +133,7 @@ class Command(BaseCommand):
         drive_service = build('drive', 'v3', credentials=creds)
         file_path = os.path.join(os.getcwd(), file_name)
         try:
-            request = drive_service.files().export_media(fileId=file_id,
-                                                         mimeType='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+            request = drive_service.files().get_media(fileId=file_id)
             with io.FileIO(file_path, 'wb') as file:
                 downloader = MediaIoBaseDownload(file, request)
                 done = False
@@ -167,7 +169,7 @@ class Command(BaseCommand):
         self.stdout.write("🟢 Generating AI homework...\n")
 
         try:
-            genai.configure(api_key="AIzaSyDnL8RfShx-pgxLRaMoby4kZKJJocnG3s8")
+            genai.configure(api_key=os.getenv("GEMINAI_API_KEY"))
             model = genai.GenerativeModel("gemini-1.5-flash")
             lesson_summary_prompt = """
 פרומפט ליצירת סיכום שיעור בערבית
