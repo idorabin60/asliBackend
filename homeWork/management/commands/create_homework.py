@@ -9,9 +9,12 @@ from googleapiclient.http import MediaIoBaseDownload
 import googleapiclient
 import google.generativeai as genai
 from docx import Document
+import openai
 import re  # Import regex for username cleanup
 from homeWork.prompt_data_parser import prompt_data_parser
 from homeWork.prompt_data_parser import add_newline_after_number
+from dotenv import load_dotenv
+
 
 # Define Google API Scopes
 SCOPES = ["https://www.googleapis.com/auth/drive"]
@@ -22,6 +25,10 @@ class Command(BaseCommand):
     help = "Fetch all .docx files from Google Drive, generate AI-based homework, and store it in the database."
 
     def handle(self, *args, **kwargs):
+        load_dotenv()  # Load from .env file
+
+        openai.api_key = os.getenv("MY_API_KEY")
+
         self.stdout.write("🟢 Starting the process...\n")
 
         try:
@@ -168,8 +175,6 @@ class Command(BaseCommand):
         self.stdout.write("🟢 Generating AI homework...\n")
 
         try:
-            genai.configure(api_key="AIzaSyDnL8RfShx-pgxLRaMoby4kZKJJocnG3s8")
-            model = genai.GenerativeModel("gemini-1.5-flash")
             lesson_summary_prompt = """
 פרומפט ליצירת סיכום שיעור בערבית
 פלסטינית
@@ -260,9 +265,11 @@ class Command(BaseCommand):
 כתוב בשפה ברורה ומקצועית
 """
 
-            response = model.generate_content(
-                lesson_summary_prompt + "\n\n" + content)
-            generated_text = response.text if response else "No AI-generated homework."
+            response = openai.chat.completions.create(
+                model="o1-preview-2024-09-12",
+                messages=[{"role": "user", "content": lesson_summary_prompt}],
+            )
+            generated_text = response.choices[0].message.content
             self.stdout.write("✅ AI homework generated successfully.\n")
             return generated_text
         except Exception as e:
