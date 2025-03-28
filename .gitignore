@@ -1,10 +1,12 @@
 # Virtual environment
 venv/
 
+
 # Secrets
 credentials.json
 token.json
 service_account.json
+.env
 # Python compiled files
 __pycache__/
 *.pyc
