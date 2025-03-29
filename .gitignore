@@ -6,10 +6,13 @@ venv/
 credentials.json
 token.json
 .env
+service_account
 # Python compiled files
 __pycache__/
 *.pyc
 
 # (Optional) Django database file
 db.sqlite3
+service_account.json
+service_account
 
