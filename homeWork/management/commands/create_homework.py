@@ -1,5 +1,6 @@
 import os
 import io
+import base64
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
 from homeWork.models import Homework
@@ -88,16 +89,30 @@ class Command(BaseCommand):
     def authenticate_google(self):
         """Authenticate with Google API using service account credentials."""
         self.stdout.write("🟢 Authenticating Google API...\n")
+        base64_key = os.getenv("GOOGLE_CREDENTIALS_B64")
 
-        BASE_DIR = os.path.dirname(os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-        json_path = os.path.join(BASE_DIR, 'service_account.json')
+        if base64_key:
+            self.stdout.write(
+                "🧩 Detected GOOGLE_CREDENTIALS_B64 from environment.\n")
+            credentials_path = "/tmp/service_account.json"
+            try:
+                with open(credentials_path, "wb") as f:
+                    f.write(base64.b64decode(base64_key))
+            except Exception as e:
+                raise Exception(
+                    f"❌ Failed to decode/write service account: {e}")
+        else:
+            BASE_DIR = os.path.dirname(os.path.dirname(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+            credentials_path = os.path.join(BASE_DIR, 'service_account.json')
 
-        if not os.path.exists(json_path):
-            raise FileNotFoundError(
-                f"❌ Service account file not found at: {json_path}")
+            if not os.path.exists(credentials_path):
+                raise FileNotFoundError(
+                    f"❌ Service account file not found at: {credentials_path}"
+                )
 
-        creds = Credentials.from_service_account_file(json_path, scopes=SCOPES)
+        creds = Credentials.from_service_account_file(
+            credentials_path, scopes=SCOPES)
         self.stdout.write("✅ Google API Authentication successful.\n")
         return creds
 
