@@ -26,8 +26,6 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         load_dotenv()  # Load from .env file
-        print("look here")
-        print(os.getenv("OPEN_AI_API_KEY"))
 
         openai.api_key = os.getenv("OPEN_AI_API_KEY")
 
@@ -137,7 +135,8 @@ class Command(BaseCommand):
         self.stdout.write(
             f"🟢 Downloading file: {file_name} (ID: {file_id})...\n")
         drive_service = build('drive', 'v3', credentials=creds)
-        file_path = os.path.join(os.getcwd(), file_name)
+        # ✅ Save to /tmp for Render compatibility
+        file_path = os.path.join("/tmp", file_name)
         try:
             request = drive_service.files().export_media(fileId=file_id,
                                                          mimeType='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
