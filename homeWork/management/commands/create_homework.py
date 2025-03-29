@@ -26,8 +26,10 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         load_dotenv()  # Load from .env file
+        print("look here")
+        print(os.getenv("OPEN_AI_API_KEY"))
 
-        openai.api_key = os.getenv("MY_API_KEY")
+        openai.api_key = os.getenv("OPEN_AI_API_KEY")
 
         self.stdout.write("🟢 Starting the process...\n")
 

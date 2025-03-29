@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/4.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
-
+import dj_database_url
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -86,11 +86,12 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-# cron jobs:
-
+DATABASES["default"] = dj_database_url.parse(
+    "postgresql://lingo_native_db_user:ljyiWmumrTIdKuQh1Y88CYloo8tqqJhz@dpg-cvjch4ruibrs73b53j40-a.frankfurt-postgres.render.com/lingo_native_db")
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
+# bla
 
 AUTH_PASSWORD_VALIDATORS = [
     {
