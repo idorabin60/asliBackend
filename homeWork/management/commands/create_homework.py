@@ -191,8 +191,7 @@ class Command(BaseCommand):
         self.stdout.write("🟢 Generating AI homework...\n")
 
         try:
-            lesson_summary_prompt = """
-פרומפט ליצירת סיכום שיעור בערבית
+            lesson_summary_prompt = """פרומפט ליצירת סיכום שיעור בערבית
 פלסטינית
 מטרת הפרומפט:
 יצירת סיכום שיעור מובנה ומוכן
@@ -208,7 +207,8 @@ class Command(BaseCommand):
 
 
 #אוצר מילים חדש 
-30 מילים החדשות לתלמיד שנלמדו בשיעור, כשכל אחת מופיעה ב
+30 מילים החדשות לתלמיד שנלמדו בשיעור, תוכל לאתר אותן בנקודות בהן התלמיד שואל שאלות כמו "איך אומרים את זה?" "כיפ בנקול" "מה זה אומר"- המטרה שלך היא לזהות מילים שהתלמיד לא הכיר קודם
+שים לב שכל אחת מהמילים שתוציא מופיעה בשלושת התצורות הבאות:
 ערבית (אותיות ערביות)
 ערבית (תעתיק באותיות עבריות)
 עברית (תרגום)
@@ -220,7 +220,7 @@ class Command(BaseCommand):
 
 #תופעה תחבירית חדשה
 הסבר עליה בעברית
-דוגמאות רלוונטיות מתוך השיעור
+דוגמאות רלוונטיות מתוך השיעור כתובות בתעתיק עברי מערבית, ותרגומן
 
 
 #שיעורי בית
@@ -234,6 +234,7 @@ class Command(BaseCommand):
 חוקים ליצירת התוכן:
 כל המילים והמשפטים יוצגו בערבית
 פלסטינית (לא בערבית ספרותית).
+כל המילים הערביות ייכתבו בתעתיק (אותיות עבריות)
 
 לפי התעתיק:
 כל מילה בערבית תיכתב גם באותיות
