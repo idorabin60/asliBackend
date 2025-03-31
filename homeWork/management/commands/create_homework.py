@@ -281,9 +281,10 @@ class Command(BaseCommand):
 כתוב בשפה ברורה ומקצועית
 """
 
+            full_prompt = f"{lesson_summary_prompt}\nתמלול השיעור:\n{content}\n\n"
             response = openai.chat.completions.create(
                 model="o1-preview-2024-09-12",
-                messages=[{"role": "user", "content": lesson_summary_prompt}],
+                messages=[{"role": "user", "content": full_prompt}],
             )
             generated_text = response.choices[0].message.content
             self.stdout.write("✅ AI homework generated successfully.\n")
