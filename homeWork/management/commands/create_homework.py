@@ -153,21 +153,35 @@ class Command(BaseCommand):
         self.stdout.write(
             f"🟢 Downloading file: {file_name} (ID: {file_id})...\n")
         drive_service = build('drive', 'v3', credentials=creds)
-        # ✅ Save to /tmp for Render compatibility
+    # ✅ Save to /tmp for Render compatibility
         file_path = os.path.join("/tmp", file_name)
         try:
-            request = drive_service.files().export_media(fileId=file_id,
-                                                         mimeType='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-            with io.FileIO(file_path, 'wb') as file:
-                downloader = MediaIoBaseDownload(file, request)
+            # 1) Get the actual MIME type from Drive
+            file_meta = drive_service.files().get(
+                fileId=file_id,
+                fields="mimeType"
+            ).execute()
+            mime = file_meta.get("mimeType", "")
+            if not mime:
+                raise ValueError("Could not retrieve MIME type from Drive.")
+            if mime == "application/vnd.google-apps.document":
+                export_mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                request = drive_service.files().export_media(
+                    fileId=file_id,
+                    mimeType=export_mime
+                )
+            else:
+                request = drive_service.files().get_media(fileId=file_id)
+            with io.FileIO(file_path, 'wb') as file_handle:
+                downloader = MediaIoBaseDownload(file_handle, request)
                 done = False
                 while not done:
                     status, done = downloader.next_chunk()
-                    self.stdout.write(
-                        f"📥 Download progress: {int(status.progress() * 100)}%")
-            self.stdout.write(f"✅ Download completed: {file_name}\n")
-            print(file_path+"ghiiiii")
-            return file_path
+                    if status:
+                        progress = int(status.progress() * 100)
+                        self.stdout.write(f"📥 Download progress: {progress}%")
+                self.stdout.write(f"✅ Download completed: {file_name}\n")
+                return file_path
         except Exception as e:
             self.stdout.write(self.style.ERROR(
                 f"❌ ERROR downloading {file_name}: {str(e)}\n"))
@@ -209,7 +223,7 @@ class Command(BaseCommand):
 ביותר שעלו במהלך השיעור
 
 
-#אוצר מילים חדש 
+#אוצר מילים חדש
 30 מילים החדשות לתלמיד שנלמדו בשיעור, תוכל לאתר אותן בנקודות בהן התלמיד שואל שאלות כמו "איך אומרים את זה?" "כיפ בנקול" "מה זה אומר"- המטרה שלך היא לזהות מילים שהתלמיד לא הכיר קודם
 שים לב שכל אחת מהמילים שתוציא מופיעה בשלושת התצורות הבאות:
 ערבית (אותיות ערביות)
@@ -276,7 +290,7 @@ class Command(BaseCommand):
 ה~        ة
 כל משפטי התרגול יהיו בהקשר רלוונטי
 לשיחה יומיומית.
-אל תעשה שימוש בכלל בסוגריים 
+אל תעשה שימוש בכלל בסוגריים
 
 סעיף שיעורי הבית יכלול תרגול מותאם
 אישית מהשיעור (ולא תרגול גנרי).
