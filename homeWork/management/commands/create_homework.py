@@ -44,7 +44,10 @@ class Command(BaseCommand):
             self.stdout.write(f"✅ Found {len(files)} .docx files.\n")
 
             for file in files:
-                file_name = file['name']+".docx"
+                if not file['name'].endswith('.docx'):
+                    file_name = file['name']+".docx"
+                else:
+                    file_name = file['name']
                 file_id = file['id']
                 self.stdout.write(
                     f"🔍 Processing file: {file_name} (ID: {file_id})\n")
