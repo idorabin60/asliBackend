@@ -26,14 +26,17 @@ def signup(request):
     serializer = UserSerializer(data=request.data)
     if serializer.is_valid():
         validated_data = serializer.validated_data
+        email = validated_data.get('email')
+        if User.objects.filter(email=email).exists():
+            return Response(
+                {"error": "User with this email already exists"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        # Extract password separately to hash it later
         password = validated_data.pop('password', None)
 
-        # Create the user with validated data (including first_name and last_name)
         user = User(**validated_data)
 
-        # Hash the password before saving
         if password:
             user.set_password(password)
 
