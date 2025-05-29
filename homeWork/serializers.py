@@ -20,15 +20,6 @@ class FillInBlankSerializer(serializers.ModelSerializer):
         fields = ['id', 'sentence', 'options',
                   'correct_option', 'homework', 'hebrew_sentence']
 
-    def to_representation(self, instance):
-        rep = super().to_representation(instance)
-        try:
-            # convert JSON string to list
-            rep['options'] = json.loads(rep['options'])
-        except json.JSONDecodeError:
-            rep['options'] = []
-        return rep
-
 
 class GrammaticalPhenomenonSerializer(serializers.ModelSerializer):
     class Meta:
