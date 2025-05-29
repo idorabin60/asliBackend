@@ -1,4 +1,4 @@
-from django.contrib import admin
-from .models import Homework  # Import your models
+# from django.contrib import admin
+# from .models import Homework  # Import your models
 
-admin.site.register(Homework)  # Register the model
+# admin.site.register(Homework)  # Register the model
