@@ -17,6 +17,8 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, re_path
 from users import views as user_views
+from homeWork import views as hw_views
+from chatBot import views as chatBot_views
 
 
 urlpatterns = [
@@ -25,6 +27,28 @@ urlpatterns = [
     re_path('test_token', user_views.test_token),
     re_path('signup', user_views.signup),
     re_path('user_homeworks', user_views.user_homeworks),
-
-
+    re_path('all', hw_views.get_all_hw),
+    path("homeworks/<int:homework_id>/", user_views.get_homework_by_id),
+    path("get_teachers", user_views.get_all_teachers),
+    path("chatbot/", chatBot_views.gpt_chat_view),
+    path(
+        'students_of_teacher/<int:teacher_id>/',
+        user_views.students_of_teacher,
+        name='students-of-teacher'
+    ),
+    path(
+        'students/<int:student_id>/homeworks/',
+        hw_views.student_homeworks,
+        name='student-homeworks'
+    ),
+    path(
+        'students/<int:student_id>/homeworks/<int:homework_id>/',
+        hw_views.student_homework_detail,
+        name='student-homework-detail'
+    ),
+    path(
+        'users/<int:user_id>/',
+        user_views.get_user_by_id,
+        name='get-user-by-id'
+    ),
 ]

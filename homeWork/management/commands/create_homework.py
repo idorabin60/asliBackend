@@ -2,7 +2,6 @@ import os
 import io
 import base64
 from django.core.management.base import BaseCommand
-from django.contrib.auth.models import User
 from homeWork.models import Homework
 from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
@@ -15,7 +14,14 @@ import re  # Import regex for username cleanup
 from homeWork.prompt_data_parser import prompt_data_parser
 from homeWork.prompt_data_parser import add_newline_after_number
 from dotenv import load_dotenv
+from django.contrib.auth import get_user_model
+from homeWork.models import Homework, VocabularyMatch, GrammaticalPhenomenon, FillInBlank
+import datetime
+import json
 
+User = get_user_model()
+
+load_dotenv()   # ← will load KEY=VALUE lines from .env into os.environ
 
 # Define Google API Scopes
 SCOPES = ["https://www.googleapis.com/auth/drive"]
@@ -75,7 +81,7 @@ class Command(BaseCommand):
                 file_path = self.download_file(file_id, file_name, creds)
                 document_content = self.read_docx(file_path)
                 homework_text = self.generate_homework(document_content)
-                self.create_homework_in_django(email, homework_text, file_id)
+                self.create_homework_from_json(email, homework_text, file_id)
 
                 # ✅ Delete local copy of file
                 if os.path.exists(file_path):
@@ -88,6 +94,11 @@ class Command(BaseCommand):
 
         except Exception as e:
             self.stdout.write(self.style.ERROR(f"❌ ERROR: {str(e)}\n"))
+
+    def extract_valid_username(self, file_name):
+        base = os.path.splitext(file_name)[0]
+        m = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', base)
+        return m.group(0) if m else None
 
     def authenticate_google(self):
         """Authenticate with Google API using service account credentials."""
@@ -203,148 +214,132 @@ class Command(BaseCommand):
                 f"❌ ERROR reading {file_path}: {str(e)}\n"))
             return ""
 
-    def generate_homework(self, content):
-        """Generate AI-based homework using Gemini API."""
-        self.stdout.write("🟢 Generating AI homework...\n")
-
-        try:
-            lesson_summary_prompt = """פרומפט ליצירת סיכום שיעור בערבית
-פלסטינית
-מטרת הפרומפט:
-יצירת סיכום שיעור מובנה ומוכן
-להעתקה למייל, בפורמט מקצועי וברור.
-תקפיד שהכותרת של כל אחד מהנושאים
-כל אחת מ4 הכותרות, תשים במקומה רק #
-קלט:
-תמלול מלא של השיעור
-מבנה הסיכום שייוצר:
-
-#תקציר השיעור – תיאור קצר בעברית של הנושאים שנלמדו , הפעילויות שבוצעו והתמקדות בנקודות החשובות
-ביותר שעלו במהלך השיעור
-
-
-#אוצר מילים חדש
-30 מילים החדשות לתלמיד שנלמדו בשיעור, תוכל לאתר אותן בנקודות בהן התלמיד שואל שאלות כמו "איך אומרים את זה?" "כיפ בנקול" "מה זה אומר"- המטרה שלך היא לזהות מילים שהתלמיד לא הכיר קודם
-שים לב שכל אחת מהמילים שתוציא מופיעה בשלושת התצורות הבאות:
-ערבית (אותיות ערביות)
-ערבית (תעתיק באותיות עבריות)
-עברית (תרגום)
-
-השתדל לכלול מגוון של מילים חדשות
-שנלמדו
-מבנה  החלק הזה:
-הופעת המילים בלבד
-
-#תופעה תחבירית חדשה
-הסבר עליה בעברית
-דוגמאות רלוונטיות מתוך השיעור כתובות בתעתיק עברי מערבית, ותרגומן
-
-
-#שיעורי בית
-משפטים לתרגול – יצירת משפטים
-מקוריים המבוססים על אוצר המילים החדש: סהכ 15 משפטים
-תרגול מערבית לעברית
-תרגול כתיבה או דיבור
-שימוש בתופעה התחבירית החדשה
-מבנה החלק הזה: תרגם את המשפטים הבאים:
-ואז המשפטים
-חוקים ליצירת התוכן:
-כל המילים והמשפטים יוצגו בערבית
-פלסטינית (לא בערבית ספרותית).
-כל המילים הערביות ייכתבו בתעתיק (אותיות עבריות)
-תכתוב את כל המשפטים בתרגול בערבית (אותיות ערביות) וגם בערבית עוד פעם (אבל הפעם באותיות עבריות)
-
-לפי התעתיק:
-כל מילה בערבית תיכתב גם באותיות
-ערביות וגם באותיות עבריות.
-
-תעתיק עברי ערבי לפי:
-א          ا
-ב          ب
-ג או ג'   ج
-ד          د
-ד'          ذ
-ה          ه
-ו           و
-ז           ز
-ח          ح
-ח'         خ
-ט          ط
-ט'         ظ
-י           ي
-כ          ك
-ל          ل
-מ          م
-נ           ن
-ס          س
-ע          ع
-ע'         غ
-פ          ف
-צ          ص
-צ'          ض
-ק          ق
-ר          ر
-ש          ش
-ת          ت
-ת'         ث
-ה~        ة
-כל משפטי התרגול יהיו בהקשר רלוונטי
-לשיחה יומיומית.
-אל תעשה שימוש בכלל בסוגריים
-
-סעיף שיעורי הבית יכלול תרגול מותאם
-אישית מהשיעור (ולא תרגול גנרי).
-פלט (תוצאה מבוקשת):
-מסמך מסודר, כאשר הכותרות הן בדיוק
-לפי הסעיפים הממוספרים
-כתוב בשפה ברורה ומקצועית
-"""
-
-            full_prompt = f"{lesson_summary_prompt}\nתמלול השיעור:\n{content}\n\n"
-            response = openai.chat.completions.create(
-                model="o1",
-                messages=[{"role": "user", "content": full_prompt}],
+    def generate_homework(self, content: str) -> dict:
+        """
+        Sends the lesson transcript to GPT-4o with a JSON-only prompt
+        and returns the parsed dict.
+        """
+        self.stdout.write("🟢 Generating AI homework JSON...")
+        system_message = {
+            "role": "system",
+            "content": (
+                "You are a helpful assistant. Return ONLY valid JSON "
+                "with keys: vocab_matches, grammatical_phenomenon, fill_in_the_blank_exercises."
             )
-            generated_text = response.choices[0].message.content
-            self.stdout.write("✅ AI homework generated successfully.\n")
-            return generated_text
-        except Exception as e:
-            self.stdout.write(self.style.ERROR(
-                f"❌ ERROR generating AI homework: {str(e)}\n"))
-            return ""
+        }
+        user_prompt = """פרומפט ליצירת סיכום שיעור בערבית מדוברת (תעתיק עברי) + יצירת פעילויות מבוססות המודל שלנו
 
-    def create_homework_in_django(self, email, homework_text, file_id):
-        """Store the AI-generated homework in the Django database with file_id."""
-        self.stdout.write(f"🟢 Storing homework in DB for user: {email}...\n")
+חוקי התוכן והשפה (מעודכן):
+1. כתוב את כל התוכן בערבית מדוברת (לא ספרותית, לא דיאלקט זר).
+2. כל מילה בודדת בערבית (שאינה בתוך משפט מלא) תופיע כך: ערבית ‎(<תעתיק עברי>) למשל: كتاب ‎(כִּתַאבּ)  
+   --- ללא ‎<‎…‎> (אין סוגריים משולשים).
+3. אל תשתמש בשום סוגריים אחרים מלבד הפורמט שבסעיף 2.
+4. בפעילות “השלם את המשפט” החזר שני שדות נפרדים:
+   • **sentence_arabic** – משפט מלא בערבית בלבד שבו מופיע ‎___ (רצף קו תחתון אחד) במקום המילה החסרה.  
+   • **sentence_hebrew** – אותו משפט בתעתיק עברי, גם הוא עם ‎___ באותו מקום.  
+   **אין לכלול את התשובה הנכונה בגוף המשפטים.**
+5. הקפד על הגייה ואותיות (א-ב-ג'-ד וכו') לפי הטבלה שלנו.
+6. **זיהוי אוצר מילים חדש**  
+   • כלול רק מילים שאינן ב-`known_vocab` של התלמיד  
+   • מלה חייבת להופיע בתמלול ≥ 2 פעמים **או** להיות מסומנת במפורש כמילה חדשה.  
+   • אל תכלול מילים פשוטות/תפקודיות (כינויי גוף, “של”, “עם”…).  
+   • בחר מילים מאתגרות אך תואמות לרמת הלומד; אל תמציא מילים.
+7. **בניית תרגילי השלמה**  
+   • מינימום 5 מילים בכל משפט.  
+   • שלב את המילים החדשות שאותרו.  
+   • הצג תופעות דקדוק מתאימות.  
+   • ודא תשובה נכונה אחת בלבד; המילים ב-**bank_words** יהיו רלוונטיות ובתוכן **חייב** להופיע גם ה-**correct_answer**.  
+   • שמור על היגיון ורצף טבעי.
+8. רהיטות ומקצועיות בלבד; אל תשתמש בשפה בוטה.
 
-        try:
-            user = User.objects.get(email=email)
-            response_lst = prompt_data_parser(homework_text)
-            print(homework_text)
-            home_work = add_newline_after_number(response_lst[4])
-            Homework.objects.create(
-                user=user, summary=response_lst[1], file_id=file_id, new_vocabulary=response_lst[2], grammatical_phenomenon=response_lst[3], hw=response_lst[4])
-            self.stdout.write(self.style.SUCCESS(
-                f"✅ Successfully created homework for {email}\n"))
-        except User.DoesNotExist:
-            self.stdout.write(self.style.ERROR(
-                f"❌ ERROR: User '{email}' not found. Skipping file.\n"))
-        except Exception as e:
-            self.stdout.write(self.style.ERROR(
-                f"❌ ERROR storing in DB: {str(e)}\n"))
+מבנה הסיכום הנדרש:
 
-    def extract_valid_username(self, file_name):
-        """
-        Extracts a valid email from the file name.
-        The file name must contain a valid email format.
-        """
-        base_name = os.path.splitext(file_name)[0]  # Remove .docx extension
+#תופעה תחבירית חדשה  
+הסבר בעברית + דוגמאות בערבית (עם תעתיק, לפי סעיף 2) + תרגום.
 
-    # Match a valid email format using regex
-        match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', base_name)
+#אוצר מילים חדש  
+15 פריטים:  
+- arabic_word  מילה בודדת לפי סעיף 2  
+- hebrew_word  התרגום לעברית
 
-        if match:
-            email = match.group(0)  # Extract the matched email
-            return email if User.objects.filter(email=email).exists() else None
+#שיעורי בית  
+15 תרגילי “השלם את המשפט” כמתואר בסעיף 4.  
+בשדות **correct_answer** ו-**bank_words** השתמש בפורמט סעיף 2.
 
-        return None  # Return None if no valid email is found
+החזר **אך ורק** JSON במבנה הבא (ללא טקסט נוסף):
+
+{
+  "vocab_matches": [
+    {
+      "arabic_word": "كتاب ‎(כִּתַאבּ)",
+      "hebrew_word": "ספר"
+    }
+    // … 14 נוספים
+  ],
+  "grammatical_phenomenon": {
+    "text": "<הסבר בעברית + דוגמאות בפורמט הנדרש + תרגום>"
+  },
+  "fill_in_the_blank_exercises": [
+    {
+      "sentence_arabic": "أنا بحب ___",
+      "sentence_hebrew": "אנה בחב ___",
+      "correct_answer": "كتاب ‎(כִּתַאבּ)",
+      "bank_words": [
+        "كتاب ‎(כִּתַאבּ)",
+        "دفتر ‎(דַפְתַר)",
+        "قلم ‎(קַלַם)"
+      ]
+    }
+    // … 14 נוספים
+  ]
+}
+
+
+"""
+        full_messages = [
+            system_message,
+            {"role": "user", "content": user_prompt},
+            {"role": "user", "content": f"תמלול השיעור:\n\n{content}"}
+        ]
+        resp = openai.chat.completions.create(
+            model="o3",
+            temperature=1,
+            messages=full_messages,
+        )
+        raw = resp.choices[0].message.content
+        # If the model wrapped in ```json blocks, strip them:
+        if raw.startswith("```"):
+            raw = raw.strip("```json").strip("```").strip()
+        return json.loads(raw)
+
+    def create_homework_from_json(self, email: str, data: dict, file_id: str):
+        """Given the parsed JSON, create all related DB entries."""
+        self.stdout.write(f"🟢 Storing homework for {email}...")
+        user = User.objects.get(email=email)
+        hw = Homework.objects.create(
+            user=user,
+            due_date=datetime.date.today(),
+            file_id=file_id
+        )
+        # vocabulary
+        for item in data.get("vocab_matches", []):
+            VocabularyMatch.objects.create(
+                homework=hw,
+                arabic_word=item["arabic_word"],
+                hebrew_word=item["hebrew_word"],
+            )
+        # grammatical phenomenon
+        GrammaticalPhenomenon.objects.create(
+            homework=hw,
+            text=data["grammatical_phenomenon"]["text"]
+        )
+        # fill-in-the-blank
+        for ex in data.get("fill_in_the_blank_exercises", []):
+            FillInBlank.objects.create(
+                homework=hw,
+                sentence=ex["sentence_arabic"],
+                hebrew_sentence=ex["sentence_hebrew"],
+                options=ex["bank_words"],
+                correct_option=ex["correct_answer"],
+            )
+        self.stdout.write(self.style.SUCCESS(" ✅ Stored all exercises.\n"))
