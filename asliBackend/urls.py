@@ -18,6 +18,7 @@ from django.contrib import admin
 from django.urls import path, re_path
 from users import views as user_views
 from homeWork import views as hw_views
+from chatBot import views as chatBot_views
 
 
 urlpatterns = [
@@ -29,6 +30,7 @@ urlpatterns = [
     re_path('all', hw_views.get_all_hw),
     path("homeworks/<int:homework_id>/", user_views.get_homework_by_id),
     path("get_teachers", user_views.get_all_teachers),
+    path("chatbot/", chatBot_views.gpt_chat_view),
     path(
         'students_of_teacher/<int:teacher_id>/',
         user_views.students_of_teacher,
