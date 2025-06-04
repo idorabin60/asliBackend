@@ -10,6 +10,8 @@ from .serializers import UserSerializer
 from homeWork.serializers import HomeworkSerializer  # Import Homework serializer
 from homeWork.models import Homework  # Import Homework model
 from django.contrib.auth import get_user_model
+from datetime import date, timedelta
+
 
 User = get_user_model()
 
@@ -116,4 +118,21 @@ def students_of_teacher(request, teacher_id):
 def get_user_by_id(request, user_id):
     user = get_object_or_404(User, id=user_id)
     serializer = UserSerializer(user)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication, SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def get_user_homework_from_last_two_weeks(request):
+    """
+    Return all Homework objects for the authenticated user whose due_date
+    is within the last 14 days (including today).
+    """
+    two_weeks_ago = date.today() - timedelta(days=14)
+    recent_homeworks = Homework.objects.filter(
+        user=request.user,
+        due_date__gte=two_weeks_ago
+    )
+    serializer = HomeworkSerializer(recent_homeworks, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)

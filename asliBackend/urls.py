@@ -51,4 +51,10 @@ urlpatterns = [
         user_views.get_user_by_id,
         name='get-user-by-id'
     ),
+    path(
+        'homeworks/recent/',
+        user_views.get_user_homework_from_last_two_weeks,
+        name='homework-recent'
+
+    )
 ]
