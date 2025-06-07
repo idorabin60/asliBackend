@@ -318,7 +318,7 @@ class Command(BaseCommand):
                 document_content = self.read_docx(file_path)
                 homework_text = self.generate_homework(document_content)
                 # change data_for_lie_to_hw_text:
-                self.create_homework_from_json(email, data_for_lie, file_id)
+                self.create_homework_from_json(email, homework_text, file_id)
 
                 # ✅ Delete local copy of file
                 if os.path.exists(file_path):
