@@ -77,13 +77,240 @@ class Command(BaseCommand):
                         f"⚠️ Skipping {file_name} - User '{email}' does not exist in the database.\n"))
                     continue
 
-                # ✅ Download, process, and store homework
-
                 file_path = self.download_file(file_id, file_name, creds)
                 document_content = self.read_docx(file_path)
                 homework_text = self.generate_homework(document_content)
-                # change data_for_lie_to_hw_text:
-                self.create_homework_from_json(email, homework_text, file_id)
+                text_for_lingo = """
+{
+  "vocab_matches": [
+    { "arabic_word": "سلام ‎(סַלַאם)", "hebrew_word": "שלום" },
+    { "arabic_word": "مرحبا ‎(מַרְחַבַּא)", "hebrew_word": "שלום (היי)" },
+    { "arabic_word": "صباح ‎(צַבַּאח)", "hebrew_word": "בוקר" },
+    { "arabic_word": "كيف ‎(כֵּיף)", "hebrew_word": "איך" },
+    { "arabic_word": "قهوة ‎(קַהְוֶה)", "hebrew_word": "קפה" },
+    { "arabic_word": "ميّة ‎(מַיִּה)", "hebrew_word": "מים" },
+    { "arabic_word": "أكل ‎(אַקַל)", "hebrew_word": "אוכל" },
+    { "arabic_word": "بدي ‎(בִּדִּי)", "hebrew_word": "אני רוצה" },
+    { "arabic_word": "تمام ‎(תַמַאם)", "hebrew_word": "בסדר" },
+    { "arabic_word": "وين ‎(וֵין)", "hebrew_word": "איפה" },
+    { "arabic_word": "شو ‎(שׁוּ)", "hebrew_word": "מה" },
+    { "arabic_word": "هلا ‎(הַלַא)", "hebrew_word": "עכשיו / היי" },
+    { "arabic_word": "شوي ‎(שְׁוַי)", "hebrew_word": "קצת" },
+    { "arabic_word": "جاهز ‎(גַ׳אהֶז)", "hebrew_word": "מוכן" },
+    { "arabic_word": "بكرة ‎(בֻּכְרֶה)", "hebrew_word": "מחר" },
+    { "arabic_word": "إسا ‎(אִסַּא)", "hebrew_word": "עכשיו" },
+    { "arabic_word": "دقيقة ‎(דַקִּיקַה)", "hebrew_word": "דקה" },
+    { "arabic_word": "خلص ‎(חַלַּס)", "hebrew_word": "סיים" },
+    { "arabic_word": "خير ‎(חֵיר)", "hebrew_word": "טוב" },
+    { "arabic_word": "هون ‎(הוֹן)", "hebrew_word": "כאן" }
+  ],
+  "grammatical_phenomenon": {
+    "text": "בפלסטינית המדוברת שמים ‎\"بدي‎\" ‎(בִּדִּי) לפני פועל או שם־עצם כדי להביע רצון או צורך.\n\nדוגמאות:\n1. بدي ‎(בִּדִּי) قهوة ‎(קַהְוֶה) – אני רוצה קפה.\n2. بدي ‎(בִּדִּי) أشرب ‎(אַשְרַב) ميّة ‎(מַיִּה) – אני רוצה לשתות מים.\n3. بدي ‎(בִּדִּי) أروح ‎(אַרוּח) عالبيت – אני רוצה ללכת הביתה."
+  },
+  "fill_in_the_blank_exercises": [
+    {
+      "sentence_arabic": "سلام، ___ حالك اليوم تمام؟",
+      "sentence_hebrew": "סַלַאם, ___ חַאלַכּ אִלְיוֹם תַמַאם?",
+      "correct_answer": "كيف ‎(כֵּיף)",
+      "bank_words": [
+        "كيف ‎(כֵּיף)",
+        "وين ‎(וֵין)",
+        "شو ‎(שׁוּ)"
+      ]
+    },
+    {
+      "sentence_arabic": "بدي أعمل ___ مع حليب وسكر.",
+      "sentence_hebrew": "בִּדִּי אַעְמַל ___ מַעַ חַלִיבּ וּסֻכַּר.",
+      "correct_answer": "قهوة ‎(קַהְוֶה)",
+      "bank_words": [
+        "ميّة ‎(מַיִּה)",
+        "قهوة ‎(קַהְוֶה)",
+        "أكل ‎(אַקַל)"
+      ]
+    },
+    {
+      "sentence_arabic": "إذا عطشان خذ ___ من التلاجة.",
+      "sentence_hebrew": "אִזַא עַטְשַאן ח'וּד ___ מִן אִתַּלַאגֶ'ה.",
+      "correct_answer": "ميّة ‎(מַיִּה)",
+      "bank_words": [
+        "قهوة ‎(קַהְוֶה)",
+        "أكل ‎(אַקַל)",
+        "ميّة ‎(מַיִּה)"
+      ]
+    },
+    {
+      "sentence_arabic": "شو، ___ رايح اليوم بعد المدرسة؟",
+      "sentence_hebrew": "שׁוּ, ___ רַאיֵח אִלְיוֹם בַּעְד אִלְמַדְרַסֶה?",
+      "correct_answer": "وين ‎(וֵין)",
+      "bank_words": [
+        "وين ‎(וֵין)",
+        "هلا ‎(הַלַא)",
+        "تمام ‎(תַמַאם)"
+      ]
+    },
+    {
+      "sentence_arabic": "سلام يا صاحبي، ___ بدك تاكل الليلة؟",
+      "sentence_hebrew": "סַלַאם יַא צַחְבִּי, ___ בִּדַּכּ תַאכֻּל אִלְלֵילֶה?",
+      "correct_answer": "شو ‎(שׁוּ)",
+      "bank_words": [
+        "تمام ‎(תַמַאם)",
+        "شو ‎(שׁוּ)",
+        "قهوة ‎(קַהְוֶה)"
+      ]
+    },
+    {
+      "sentence_arabic": "أنا ___ أشوف فيلم جديد اليوم.",
+      "sentence_hebrew": "אַנַא ___ אַשוּף פִילְם גַ׳דִיד אִלְיוֹם.",
+      "correct_answer": "بدي ‎(בִּדִּי)",
+      "bank_words": [
+        "ميّة ‎(מַיִּה)",
+        "قهوة ‎(קַהְוֶה)",
+        "بدي ‎(בִּדִּי)"
+      ]
+    },
+    {
+      "sentence_arabic": "الحمد لله، الجو اليوم ___ وما في مطر.",
+      "sentence_hebrew": "אַלְחַמְדֻ לִלָּה, אִלְגַ׳וּ אִלְיוֹם ___ וּמַא פִי מַטַר.",
+      "correct_answer": "تمام ‎(תַמַאם)",
+      "bank_words": [
+        "تمام ‎(תַמַאם)",
+        "وين ‎(וֵין)",
+        "شوي ‎(שְׁוַי)"
+      ]
+    },
+    {
+      "sentence_arabic": "___ عليكم، شو الأخبار يا جماعة؟",
+      "sentence_hebrew": "___ עַלֵיכֻּם, שׁוּ אִלְאַחְ׳בַּאר יַא גַ׳מַאעַה?",
+      "correct_answer": "سلام ‎(סַלַאם)",
+      "bank_words": [
+        "وين ‎(וֵין)",
+        "سلام ‎(סַלַאם)",
+        "كيف ‎(כֵּיף)"
+      ]
+    },
+    {
+      "sentence_arabic": "خلصت الدوام، بنبدا ___ نطبخ العشاء؟",
+      "sentence_hebrew": "חַלַצְתּ אִדַּוַאם, בְּנִבְּדַא ___ נִטְבֻּח אִלְעַשַא?",
+      "correct_answer": "هلا ‎(הַלַא)",
+      "bank_words": [
+        "ميّة ‎(מַיִּה)",
+        "وين ‎(וֵין)",
+        "هلا ‎(הַלַא)"
+      ]
+    },
+    {
+      "sentence_arabic": "نسيت أشرب ___ بعد الرياضة.",
+      "sentence_hebrew": "נְסִית אַשְרַב ___ בַּעְד אִרְרִיַאדַה.",
+      "correct_answer": "ميّة ‎(מַיִּה)",
+      "bank_words": [
+        "ميّة ‎(מַיִּה)",
+        "قهوة ‎(קַהְוֶה)",
+        "أكل ‎(אַקַל)"
+      ]
+    },
+    {
+      "sentence_arabic": "حط ___ ملح على السلطة مو كتير.",
+      "sentence_hebrew": "חֻט ___ מֶלַח עַלַא אִסַּלַטַה מוּ כְּתִיר.",
+      "correct_answer": "شوي ‎(שְׁוַי)",
+      "bank_words": [
+        "قهوة ‎(קַהְוֶה)",
+        "شوي ‎(שְׁוַי)",
+        "تمام ‎(תַמַאם)"
+      ]
+    },
+    {
+      "sentence_arabic": "عملت ___ كتير طيب لولادي اليوم.",
+      "sentence_hebrew": "עַמַלְתּ ___ כְּתִיר טַיַּבּ לְוְלַאדִי אִלְיוֹם.",
+      "correct_answer": "أكل ‎(אַקַל)",
+      "bank_words": [
+        "ميّة ‎(מַיִּה)",
+        "قهوة ‎(קַהְוֶה)",
+        "أكل ‎(אַקַל)"
+      ]
+    },
+    {
+      "sentence_arabic": "الغدا ___ على الطاولة تستنى فيك.",
+      "sentence_hebrew": "אִלְעַ׳דַא ___ עַלַא אִט־טַאוְלֶה תִסְתַנַּא פִיכּ.",
+      "correct_answer": "جاهز ‎(גַ׳אהֶז)",
+      "bank_words": [
+        "جاهز ‎(גַ׳אהֶז)",
+        "وين ‎(וֵין)",
+        "شوي ‎(שְׁוַי)"
+      ]
+    },
+    {
+      "sentence_arabic": "مرحبا يا أميرة، ___ عملت الواجب؟",
+      "sentence_hebrew": "מַרְחַבַּא יַא אַמִירַה, ___ עַמַלְתּ אִלְוַאגִ׳בּ?",
+      "correct_answer": "كيف ‎(כֵּיף)",
+      "bank_words": [
+        "وين ‎(וֵין)",
+        "كيف ‎(כֵּיף)",
+        "بكرة ‎(בֻּכְרֶה)"
+      ]
+    },
+    {
+      "sentence_arabic": "خلص الشغل اليوم، بنرجع ___ الصبح.",
+      "sentence_hebrew": "חַלַץ אִשְשֻע׳ל אִלְיוֹם, בִּנִרְגַ׳ע ___ אִצֻּבַּח.",
+      "correct_answer": "بكرة ‎(בֻּכְרֶה)",
+      "bank_words": [
+        "شوي ‎(שְׁוַי)",
+        "تمام ‎(תַמַאם)",
+        "بكرة ‎(בֻּכְרֶה)"
+      ]
+    },
+    {
+      "sentence_arabic": "استنى ___ وبعدين منطلع مع بعض.",
+      "sentence_hebrew": "אִסְתַנַּא ___ וּבַּעְדֵין מִנִטְלַע מַעַ בַּעְד.",
+      "correct_answer": "شوي ‎(שְׁוַי)",
+      "bank_words": [
+        "شوي ‎(שְׁוַי)",
+        "ميّة ‎(מַיִּה)",
+        "قهوة ‎(קַהְוֶה)"
+      ]
+    },
+    {
+      "sentence_arabic": "___، بدي أحكي معك دقيقة بس.",
+      "sentence_hebrew": "___, בִּדִּי אַחְכִּי מַעַכּ דַקִּיקַה בַּס.",
+      "correct_answer": "سلام ‎(סַלַאם)",
+      "bank_words": [
+        "كيف ‎(כֵּיף)",
+        "سلام ‎(סַלַאם)",
+        "وين ‎(וֵין)"
+      ]
+    },
+    {
+      "sentence_arabic": "خلصنا الدرس وراجعين البيت ___ ان شاء الله.",
+      "sentence_hebrew": "חַלַצְנַא אִלְדַרְס וּרַאגְ׳עִין אִלְבֵּית ___ אִן שַׁא אַללַּה.",
+      "correct_answer": "تمام ‎(תַמַאם)",
+      "bank_words": [
+        "كيف ‎(כֵּיף)",
+        "شوي ‎(שְׁוַי)",
+        "تمام ‎(תַמַאם)"
+      ]
+    },
+    {
+      "sentence_arabic": "بدك تطلع ___ ولا تستنى شوي؟",
+      "sentence_hebrew": "בִּדַּכּ תִטְלַע ___ וַלַא תִסְתַנַּא שְׁוַי?",
+      "correct_answer": "إسا ‎(אִסַּא)",
+      "bank_words": [
+        "إسا ‎(אִסַּא)",
+        "بكرة ‎(בֻּכְרֶה)",
+        "ميّة ‎(מַיִּה)"
+      ]
+    },
+    {
+      "sentence_arabic": "ما ___ الأكل لسا، بستنى دقيقة.",
+      "sentence_hebrew": "מַא ___ אִלְאַכַּל לִסַּא, בַּסְתַנַּא דַקִּיקַה.",
+      "correct_answer": "خلص ‎(חַלַּס)",
+      "bank_words": [
+        "ميّة ‎(מַיִּה)",
+        "خلص ‎(חַלַּס)",
+        "قهوة ‎(קַהְוֶה)"
+      ]
+    }
+  ]
+}"""
+                self.create_homework_from_json(email, text_for_lingo, file_id)
 
                 # ✅ Delete local copy of file
                 if os.path.exists(file_path):
