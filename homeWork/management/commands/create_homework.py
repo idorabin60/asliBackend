@@ -312,7 +312,8 @@ class Command(BaseCommand):
 }
 """
 
-                self.create_homework_from_json(email, text_for_lingo, file_id)
+                self.create_homework_from_json(
+                    email, json.loads(text_for_lingo), file_id)
 
                 # ✅ Delete local copy of file
                 if os.path.exists(file_path):
